@@ -1,0 +1,56 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.stat-card {
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.table-danger-light {
+    background-color: #fde8e8 !important;
+}
+
+.table-warning-light {
+    background-color: #fef3cd !important;
+}
+
+.attachment-preview {
+    max-width: 100%;
+    max-height: 150px;
+    object-fit: contain;
+}
+
+.attachment-item {
+    transition: background-color 0.2s;
+}
+
+.attachment-item:hover {
+    background-color: #f8f9fa;
+}
+
+.toast-container .toast {
+    min-width: 250px;
+}
+
+.navbar-brand {
+    font-weight: 600;
+    font-size: 1.3rem;
+}
+
+.card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.table a {
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.table a:hover {
+    text-decoration: underline;
+}

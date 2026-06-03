@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HomeVault - 家庭物品管理</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#" @click.prevent="navigate('dashboard')">
+                    <i class="bi bi-house-heart-fill"></i> HomeVault
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <a class="nav-link" :class="{active: currentView === 'dashboard'}" href="#" @click.prevent="navigate('dashboard')">
+                                <i class="bi bi-speedometer2"></i> 仪表盘
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" :class="{active: currentView === 'rooms'}" href="#" @click.prevent="navigate('rooms')">
+                                <i class="bi bi-door-open"></i> 房间
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" :class="{active: currentView === 'categories'}" href="#" @click.prevent="navigate('categories')">
+                                <i class="bi bi-tags"></i> 分类
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" :class="{active: currentView === 'items'}" href="#" @click.prevent="navigate('items')">
+                                <i class="bi bi-box-seam"></i> 物品
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container-fluid mt-3">
+            <!-- Toast notifications -->
+            <div class="toast-container position-fixed top-0 end-0 p-3">
+                <div class="toast" :class="{'show': toast.show, 'bg-success': toast.type==='success', 'bg-danger': toast.type==='error'}" role="alert">
+                    <div class="toast-body text-white d-flex align-items-center">
+                        <i class="bi me-2" :class="toast.type==='success' ? 'bi-check-circle' : 'bi-exclamation-circle'"></i>
+                        {{ toast.message }}
+                        <button type="button" class="btn-close btn-close-white ms-auto" @click="toast.show=false"></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard -->
+            <div v-if="currentView === 'dashboard'">
+                <h2 class="mb-4"><i class="bi bi-speedometer2"></i> 仪表盘</h2>
+                <div class="row g-4 mb-4">
+                    <div class="col-md-4">
+                        <div class="card stat-card border-primary">
+                            <div class="card-body text-center">
+                                <i class="bi bi-box-seam display-4 text-primary"></i>
+                                <h3 class="mt-2">{{ dashboard.total_items }}</h3>
+                                <p class="text-muted mb-0">物品总数</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card stat-card border-success">
+                            <div class="card-body text-center">
+                                <i class="bi bi-door-open display-4 text-success"></i>
+                                <h3 class="mt-2">{{ dashboard.total_rooms }}</h3>
+                                <p class="text-muted mb-0">房间数量</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card stat-card border-info">
+                            <div class="card-body text-center">
+                                <i class="bi bi-tags display-4 text-info"></i>
+                                <h3 class="mt-2">{{ dashboard.total_categories }}</h3>
+                                <p class="text-muted mb-0">分类数量</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4" v-if="dashboard.expiring_soon.length || dashboard.expired.length">
+                    <div class="col-md-6" v-if="dashboard.expiring_soon.length">
+                        <div class="card border-warning">
+                            <div class="card-header bg-warning text-dark">
+                                <i class="bi bi-exclamation-triangle"></i> 即将过保 (30天内)
+                            </div>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between" v-for="item in dashboard.expiring_soon" :key="item.id">
+                                    <a href="#" @click.prevent="viewItem(item.id)">{{ item.name }}</a>
+                                    <span class="badge bg-warning text-dark">{{ item.warranty_expires }}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6" v-if="dashboard.expired.length">
+                        <div class="card border-danger">
+                            <div class="card-header bg-danger text-white">
+                                <i class="bi bi-x-circle"></i> 已过保
+                            </div>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between" v-for="item in dashboard.expired" :key="item.id">
+                                    <a href="#" @click.prevent="viewItem(item.id)">{{ item.name }}</a>
+                                    <span class="badge bg-danger">{{ item.warranty_expires }}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div v-if="!dashboard.expiring_soon.length && !dashboard.expired.length" class="alert alert-success">
+                    <i class="bi bi-check-circle"></i> 所有物品保修状态良好！
+                </div>
+            </div>
+
+            <!-- Rooms -->
+            <div v-if="currentView === 'rooms'">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2><i class="bi bi-door-open"></i> 房间管理</h2>
+                    <button class="btn btn-primary" @click="openRoomModal()">
+                        <i class="bi bi-plus-lg"></i> 添加房间
+                    </button>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4" v-for="room in rooms" :key="room.id">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ room.name }}</h5>
+                                <p class="card-text text-muted">{{ room.description || '暂无描述' }}</p>
+                                <span class="badge bg-secondary">{{ room.item_count }} 件物品</span>
+                            </div>
+                            <div class="card-footer bg-transparent">
+                                <button class="btn btn-sm btn-outline-primary me-1" @click="openRoomModal(room)">
+                                    <i class="bi bi-pencil"></i> 编辑
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @click="deleteRoom(room)">
+                                    <i class="bi bi-trash"></i> 删除
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12" v-if="!rooms.length">
+                        <div class="alert alert-info">暂无房间，请点击"添加房间"创建。</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Categories -->
+            <div v-if="currentView === 'categories'">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2><i class="bi bi-tags"></i> 分类管理</h2>
+                    <button class="btn btn-primary" @click="openCategoryModal()">
+                        <i class="bi bi-plus-lg"></i> 添加分类
+                    </button>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4" v-for="cat in categories" :key="cat.id">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ cat.name }}</h5>
+                                <p class="card-text text-muted">{{ cat.description || '暂无描述' }}</p>
+                                <span class="badge bg-secondary">{{ cat.item_count }} 件物品</span>
+                            </div>
+                            <div class="card-footer bg-transparent">
+                                <button class="btn btn-sm btn-outline-primary me-1" @click="openCategoryModal(cat)">
+                                    <i class="bi bi-pencil"></i> 编辑
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @click="deleteCategory(cat)">
+                                    <i class="bi bi-trash"></i> 删除
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12" v-if="!categories.length">
+                        <div class="alert alert-info">暂无分类，请点击"添加分类"创建。</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items List -->
+            <div v-if="currentView === 'items'">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2><i class="bi bi-box-seam"></i> 物品管理</h2>
+                    <div>
+                        <button class="btn btn-outline-success me-2" @click="exportCSV()">
+                            <i class="bi bi-download"></i> 导出CSV
+                        </button>
+                        <button class="btn btn-primary" @click="openItemForm()">
+                            <i class="bi bi-plus-lg"></i> 添加物品
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter bar -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label">搜索名称</label>
+                                <input type="text" class="form-control" v-model="filter.search" placeholder="输入物品名称..." @input="debounceSearch">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">房间</label>
+                                <select class="form-select" v-model="filter.room_id" @change="loadItems()">
+                                    <option value="">全部房间</option>
+                                    <option v-for="r in rooms" :key="r.id" :value="r.id">{{ r.name }}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">分类</label>
+                                <select class="form-select" v-model="filter.category_id" @change="loadItems()">
+                                    <option value="">全部分类</option>
+                                    <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-outline-secondary w-100" @click="resetFilter()">
+                                    <i class="bi bi-arrow-counterclockwise"></i> 重置
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Items table -->
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>名称</th>
+                                <th>房间</th>
+                                <th>分类</th>
+                                <th>价格</th>
+                                <th>保修状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="item in items" :key="item.id" :class="warrantyRowClass(item)">
+                                <td><a href="#" @click.prevent="viewItem(item.id)">{{ item.name }}</a></td>
+                                <td>{{ item.room_name || '-' }}</td>
+                                <td>
+                                    <span class="badge bg-info me-1" v-for="c in item.categories" :key="c.id">{{ c.name }}</span>
+                                </td>
+                                <td>{{ item.price ? '¥' + item.price.toFixed(2) : '-' }}</td>
+                                <td>
+                                    <span class="badge" :class="warrantyBadgeClass(item)">{{ warrantyText(item) }}</span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary me-1" @click="openItemForm(item)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @click="deleteItem(item)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr v-if="!items.length">
+                                <td colspan="6" class="text-center text-muted py-4">暂无物品数据</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Item Form -->
+            <div v-if="currentView === 'item-form'">
+                <h2>{{ itemForm.id ? '编辑物品' : '添加物品' }}</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <form @submit.prevent="saveItem()">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">物品名称 *</label>
+                                    <input type="text" class="form-control" v-model="itemForm.name" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">所属房间</label>
+                                    <select class="form-select" v-model="itemForm.room_id">
+                                        <option :value="null">-- 未分配 --</option>
+                                        <option v-for="r in rooms" :key="r.id" :value="r.id">{{ r.name }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">描述</label>
+                                    <textarea class="form-control" v-model="itemForm.description" rows="2"></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">购买日期</label>
+                                    <input type="date" class="form-control" v-model="itemForm.purchase_date">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">价格 (元)</label>
+                                    <input type="number" class="form-control" v-model.number="itemForm.price" step="0.01" min="0">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">保修截止日期</label>
+                                    <input type="date" class="form-control" v-model="itemForm.warranty_expires">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">保修备注</label>
+                                    <input type="text" class="form-control" v-model="itemForm.warranty_notes" placeholder="如：全国联保、仅限线下门店等">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">分类 (可多选)</label>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <div class="form-check" v-for="cat in categories" :key="cat.id">
+                                            <input class="form-check-input" type="checkbox" :value="cat.id" v-model="itemForm.category_ids" :id="'cat-'+cat.id">
+                                            <label class="form-check-label" :for="'cat-'+cat.id">{{ cat.name }}</label>
+                                        </div>
+                                        <span class="text-muted" v-if="!categories.length">暂无分类，请先创建分类</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <button type="submit" class="btn btn-primary me-2">
+                                    <i class="bi bi-check-lg"></i> 保存
+                                </button>
+                                <button type="button" class="btn btn-secondary" @click="navigate('items')">
+                                    <i class="bi bi-x-lg"></i> 取消
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Item Detail -->
+            <div v-if="currentView === 'item-detail' && currentItem">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>{{ currentItem.name }}</h2>
+                    <div>
+                        <button class="btn btn-outline-primary me-2" @click="openItemForm(currentItem)">
+                            <i class="bi bi-pencil"></i> 编辑
+                        </button>
+                        <button class="btn btn-outline-secondary" @click="navigate('items')">
+                            <i class="bi bi-arrow-left"></i> 返回列表
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">基本信息</div>
+                            <div class="card-body">
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-3">描述</dt>
+                                    <dd class="col-sm-9">{{ currentItem.description || '暂无描述' }}</dd>
+                                    <dt class="col-sm-3">所属房间</dt>
+                                    <dd class="col-sm-9">{{ currentItem.room_name || '未分配' }}</dd>
+                                    <dt class="col-sm-3">分类</dt>
+                                    <dd class="col-sm-9">
+                                        <span class="badge bg-info me-1" v-for="c in currentItem.categories" :key="c.id">{{ c.name }}</span>
+                                        <span v-if="!currentItem.categories.length" class="text-muted">未分类</span>
+                                    </dd>
+                                    <dt class="col-sm-3">购买日期</dt>
+                                    <dd class="col-sm-9">{{ currentItem.purchase_date || '未记录' }}</dd>
+                                    <dt class="col-sm-3">价格</dt>
+                                    <dd class="col-sm-9">{{ currentItem.price ? '¥' + currentItem.price.toFixed(2) : '未记录' }}</dd>
+                                </dl>
+                            </div>
+                        </div>
+
+                        <div class="card mt-3">
+                            <div class="card-header">保修信息</div>
+                            <div class="card-body">
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-3">保修截止</dt>
+                                    <dd class="col-sm-9">
+                                        <span v-if="currentItem.warranty_expires">
+                                            {{ currentItem.warranty_expires }}
+                                            <span class="badge ms-2" :class="warrantyBadgeClass(currentItem)">{{ warrantyText(currentItem) }}</span>
+                                        </span>
+                                        <span v-else class="text-muted">未设置</span>
+                                    </dd>
+                                    <dt class="col-sm-3">保修备注</dt>
+                                    <dd class="col-sm-9">{{ currentItem.warranty_notes || '无' }}</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>附件</span>
+                                <label class="btn btn-sm btn-primary mb-0">
+                                    <i class="bi bi-upload"></i> 上传
+                                    <input type="file" hidden @change="uploadAttachment($event)" multiple>
+                                </label>
+                            </div>
+                            <div class="card-body">
+                                <div v-if="!currentItem.attachments.length" class="text-muted text-center py-3">
+                                    暂无附件
+                                </div>
+                                <div v-for="att in currentItem.attachments" :key="att.id" class="attachment-item mb-2 p-2 border rounded">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi me-2" :class="fileIcon(att.file_type)"></i>
+                                        <div class="flex-grow-1 text-truncate">
+                                            <small class="d-block text-truncate">{{ att.original_filename }}</small>
+                                            <small class="text-muted">{{ formatFileSize(att.file_size) }}</small>
+                                        </div>
+                                        <div class="btn-group btn-group-sm">
+                                            <a v-if="isPreviewable(att.file_type)" :href="'/api/attachments/'+att.id+'/preview'" target="_blank" class="btn btn-outline-primary" title="预览">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a :href="'/api/attachments/'+att.id+'/download'" class="btn btn-outline-secondary" title="下载">
+                                                <i class="bi bi-download"></i>
+                                            </a>
+                                            <button class="btn btn-outline-danger" @click="deleteAttachment(att)" title="删除">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div v-if="isImage(att.file_type)" class="mt-2">
+                                        <img :src="'/api/attachments/'+att.id+'/preview'" class="img-thumbnail attachment-preview">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Room Modal -->
+        <div class="modal fade" id="roomModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ roomForm.id ? '编辑房间' : '添加房间' }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form @submit.prevent="saveRoom()">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">房间名称 *</label>
+                                <input type="text" class="form-control" v-model="roomForm.name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">描述</label>
+                                <textarea class="form-control" v-model="roomForm.description" rows="2"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="submit" class="btn btn-primary">保存</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Modal -->
+        <div class="modal fade" id="categoryModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ categoryForm.id ? '编辑分类' : '添加分类' }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form @submit.prevent="saveCategory()">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">分类名称 *</label>
+                                <input type="text" class="form-control" v-model="categoryForm.name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">描述</label>
+                                <textarea class="form-control" v-model="categoryForm.description" rows="2"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="submit" class="btn btn-primary">保存</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.4.27/dist/vue.global.prod.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
