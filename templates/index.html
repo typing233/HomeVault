@@ -26,17 +26,17 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" :class="{active: currentView === 'rooms'}" href="#" @click.prevent="navigate('rooms')">
+                            <a class="nav-link" :class="{active: currentView === 'rooms' || currentView === 'room-detail'}" href="#" @click.prevent="navigate('rooms')">
                                 <i class="bi bi-door-open"></i> 房间
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" :class="{active: currentView === 'categories'}" href="#" @click.prevent="navigate('categories')">
+                            <a class="nav-link" :class="{active: currentView === 'categories' || currentView === 'category-detail'}" href="#" @click.prevent="navigate('categories')">
                                 <i class="bi bi-tags"></i> 分类
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" :class="{active: currentView === 'items'}" href="#" @click.prevent="navigate('items')">
+                            <a class="nav-link" :class="{active: currentView === 'items' || currentView === 'item-detail' || currentView === 'item-form'}" href="#" @click.prevent="navigate('items')">
                                 <i class="bi bi-box-seam"></i> 物品
                             </a>
                         </li>
@@ -133,13 +133,16 @@
                 </div>
                 <div class="row g-3">
                     <div class="col-md-4" v-for="room in rooms" :key="room.id">
-                        <div class="card h-100">
+                        <div class="card h-100 card-clickable" @click="viewRoom(room.id)">
                             <div class="card-body">
                                 <h5 class="card-title">{{ room.name }}</h5>
                                 <p class="card-text text-muted">{{ room.description || '暂无描述' }}</p>
                                 <span class="badge bg-secondary">{{ room.item_count }} 件物品</span>
                             </div>
-                            <div class="card-footer bg-transparent">
+                            <div class="card-footer bg-transparent" @click.stop>
+                                <button class="btn btn-sm btn-outline-info me-1" @click="viewRoom(room.id)">
+                                    <i class="bi bi-eye"></i> 详情
+                                </button>
                                 <button class="btn btn-sm btn-outline-primary me-1" @click="openRoomModal(room)">
                                     <i class="bi bi-pencil"></i> 编辑
                                 </button>
@@ -155,6 +158,69 @@
                 </div>
             </div>
 
+            <!-- Room Detail -->
+            <div v-if="currentView === 'room-detail' && currentRoom">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2><i class="bi bi-door-open"></i> {{ currentRoom.name }}</h2>
+                    <div>
+                        <button class="btn btn-outline-primary me-2" @click="openRoomModal(currentRoom)">
+                            <i class="bi bi-pencil"></i> 编辑
+                        </button>
+                        <button class="btn btn-outline-danger me-2" @click="deleteRoomFromDetail(currentRoom)">
+                            <i class="bi bi-trash"></i> 删除
+                        </button>
+                        <button class="btn btn-outline-secondary" @click="navigate('rooms')">
+                            <i class="bi bi-arrow-left"></i> 返回列表
+                        </button>
+                    </div>
+                </div>
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">房间信息</div>
+                            <div class="card-body">
+                                <dl class="mb-0">
+                                    <dt>名称</dt>
+                                    <dd>{{ currentRoom.name }}</dd>
+                                    <dt>描述</dt>
+                                    <dd>{{ currentRoom.description || '暂无描述' }}</dd>
+                                    <dt>关联物品数量</dt>
+                                    <dd><span class="badge bg-primary">{{ roomItems.length }} 件</span></dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">关联物品列表</div>
+                            <div class="card-body p-0" v-if="roomItems.length">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>名称</th>
+                                            <th>分类</th>
+                                            <th>价格</th>
+                                            <th>保修状态</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="item in roomItems" :key="item.id" :class="warrantyRowClass(item)">
+                                            <td><a href="#" @click.prevent="viewItem(item.id)">{{ item.name }}</a></td>
+                                            <td><span class="badge bg-info me-1" v-for="c in item.categories" :key="c.id">{{ c.name }}</span></td>
+                                            <td>{{ item.price ? '¥' + item.price.toFixed(2) : '-' }}</td>
+                                            <td><span class="badge" :class="warrantyBadgeClass(item)">{{ warrantyText(item) }}</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="card-body text-muted text-center" v-else>
+                                该房间暂无关联物品
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Categories -->
             <div v-if="currentView === 'categories'">
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -165,13 +231,16 @@
                 </div>
                 <div class="row g-3">
                     <div class="col-md-4" v-for="cat in categories" :key="cat.id">
-                        <div class="card h-100">
+                        <div class="card h-100 card-clickable" @click="viewCategory(cat.id)">
                             <div class="card-body">
                                 <h5 class="card-title">{{ cat.name }}</h5>
                                 <p class="card-text text-muted">{{ cat.description || '暂无描述' }}</p>
                                 <span class="badge bg-secondary">{{ cat.item_count }} 件物品</span>
                             </div>
-                            <div class="card-footer bg-transparent">
+                            <div class="card-footer bg-transparent" @click.stop>
+                                <button class="btn btn-sm btn-outline-info me-1" @click="viewCategory(cat.id)">
+                                    <i class="bi bi-eye"></i> 详情
+                                </button>
                                 <button class="btn btn-sm btn-outline-primary me-1" @click="openCategoryModal(cat)">
                                     <i class="bi bi-pencil"></i> 编辑
                                 </button>
@@ -183,6 +252,69 @@
                     </div>
                     <div class="col-12" v-if="!categories.length">
                         <div class="alert alert-info">暂无分类，请点击"添加分类"创建。</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Detail -->
+            <div v-if="currentView === 'category-detail' && currentCategory">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2><i class="bi bi-tags"></i> {{ currentCategory.name }}</h2>
+                    <div>
+                        <button class="btn btn-outline-primary me-2" @click="openCategoryModal(currentCategory)">
+                            <i class="bi bi-pencil"></i> 编辑
+                        </button>
+                        <button class="btn btn-outline-danger me-2" @click="deleteCategoryFromDetail(currentCategory)">
+                            <i class="bi bi-trash"></i> 删除
+                        </button>
+                        <button class="btn btn-outline-secondary" @click="navigate('categories')">
+                            <i class="bi bi-arrow-left"></i> 返回列表
+                        </button>
+                    </div>
+                </div>
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">分类信息</div>
+                            <div class="card-body">
+                                <dl class="mb-0">
+                                    <dt>名称</dt>
+                                    <dd>{{ currentCategory.name }}</dd>
+                                    <dt>描述</dt>
+                                    <dd>{{ currentCategory.description || '暂无描述' }}</dd>
+                                    <dt>关联物品数量</dt>
+                                    <dd><span class="badge bg-primary">{{ categoryItems.length }} 件</span></dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">关联物品列表</div>
+                            <div class="card-body p-0" v-if="categoryItems.length">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>名称</th>
+                                            <th>房间</th>
+                                            <th>价格</th>
+                                            <th>保修状态</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="item in categoryItems" :key="item.id" :class="warrantyRowClass(item)">
+                                            <td><a href="#" @click.prevent="viewItem(item.id)">{{ item.name }}</a></td>
+                                            <td>{{ item.room_name || '-' }}</td>
+                                            <td>{{ item.price ? '¥' + item.price.toFixed(2) : '-' }}</td>
+                                            <td><span class="badge" :class="warrantyBadgeClass(item)">{{ warrantyText(item) }}</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="card-body text-muted text-center" v-else>
+                                该分类暂无关联物品
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -404,17 +536,17 @@
                                 <div v-if="!currentItem.attachments.length" class="text-muted text-center py-3">
                                     暂无附件
                                 </div>
-                                <div v-for="att in currentItem.attachments" :key="att.id" class="attachment-item mb-2 p-2 border rounded">
+                                <div v-for="att in currentItem.attachments" :key="att.id" class="attachment-item mb-3 p-2 border rounded">
                                     <div class="d-flex align-items-center">
                                         <i class="bi me-2" :class="fileIcon(att.file_type)"></i>
                                         <div class="flex-grow-1 text-truncate">
-                                            <small class="d-block text-truncate">{{ att.original_filename }}</small>
+                                            <small class="d-block text-truncate fw-medium">{{ att.original_filename }}</small>
                                             <small class="text-muted">{{ formatFileSize(att.file_size) }}</small>
                                         </div>
                                         <div class="btn-group btn-group-sm">
-                                            <a v-if="isPreviewable(att.file_type)" :href="'/api/attachments/'+att.id+'/preview'" target="_blank" class="btn btn-outline-primary" title="预览">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
+                                            <button v-if="canPreviewInline(att)" class="btn btn-outline-primary" @click="togglePreview(att)" :title="att._showPreview ? '收起预览' : '预览'">
+                                                <i class="bi" :class="att._showPreview ? 'bi-eye-slash' : 'bi-eye'"></i>
+                                            </button>
                                             <a :href="'/api/attachments/'+att.id+'/download'" class="btn btn-outline-secondary" title="下载">
                                                 <i class="bi bi-download"></i>
                                             </a>
@@ -423,8 +555,25 @@
                                             </button>
                                         </div>
                                     </div>
-                                    <div v-if="isImage(att.file_type)" class="mt-2">
-                                        <img :src="'/api/attachments/'+att.id+'/preview'" class="img-thumbnail attachment-preview">
+                                    <!-- Inline preview area -->
+                                    <div v-if="att._showPreview" class="mt-2">
+                                        <!-- Image preview -->
+                                        <img v-if="isImage(att.file_type)" :src="'/api/attachments/'+att.id+'/preview'" class="img-thumbnail attachment-preview-large">
+                                        <!-- PDF preview -->
+                                        <iframe v-else-if="isPDF(att.file_type)" :src="'/api/attachments/'+att.id+'/preview'" class="pdf-preview-frame"></iframe>
+                                        <!-- Text preview -->
+                                        <pre v-else-if="isText(att.file_type)" class="text-preview-box">{{ att._textContent || '加载中...' }}</pre>
+                                    </div>
+                                    <!-- Non-previewable hint -->
+                                    <div v-if="!canPreviewInline(att)" class="mt-2">
+                                        <small class="text-muted">
+                                            <i class="bi bi-info-circle"></i>
+                                            {{ noPreviewHint(att.file_type) }}
+                                        </small>
+                                    </div>
+                                    <!-- Image thumbnail always shows -->
+                                    <div v-if="isImage(att.file_type) && !att._showPreview" class="mt-2">
+                                        <img :src="'/api/attachments/'+att.id+'/preview'" class="img-thumbnail attachment-preview" @click="togglePreview(att)">
                                     </div>
                                 </div>
                             </div>

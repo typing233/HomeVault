@@ -9,6 +9,10 @@ createApp({
             categories: [],
             items: [],
             currentItem: null,
+            currentRoom: null,
+            currentCategory: null,
+            roomItems: [],
+            categoryItems: [],
             filter: { search: '', room_id: '', category_id: '' },
             searchTimeout: null,
             roomForm: { id: null, name: '', description: '' },
@@ -86,6 +90,9 @@ createApp({
                 }
                 this.roomModal.hide();
                 this.loadRooms();
+                if (this.currentView === 'room-detail' && this.currentRoom) {
+                    this.viewRoom(this.currentRoom.id);
+                }
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 
@@ -95,6 +102,23 @@ createApp({
                 await this.api(`/api/rooms/${room.id}`, { method: 'DELETE' });
                 this.showToast('房间删除成功');
                 this.loadRooms();
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async deleteRoomFromDetail(room) {
+            if (!confirm(`确定删除房间"${room.name}"吗？该房间下的物品不会被删除，但会取消关联。`)) return;
+            try {
+                await this.api(`/api/rooms/${room.id}`, { method: 'DELETE' });
+                this.showToast('房间删除成功');
+                this.navigate('rooms');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async viewRoom(id) {
+            try {
+                this.currentRoom = await this.api(`/api/rooms/${id}`);
+                this.roomItems = await this.api(`/api/items?room_id=${id}`);
+                this.currentView = 'room-detail';
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 
@@ -124,6 +148,9 @@ createApp({
                 }
                 this.categoryModal.hide();
                 this.loadCategories();
+                if (this.currentView === 'category-detail' && this.currentCategory) {
+                    this.viewCategory(this.currentCategory.id);
+                }
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 
@@ -133,6 +160,23 @@ createApp({
                 await this.api(`/api/categories/${cat.id}`, { method: 'DELETE' });
                 this.showToast('分类删除成功');
                 this.loadCategories();
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async deleteCategoryFromDetail(cat) {
+            if (!confirm(`确定删除分类"${cat.name}"吗？`)) return;
+            try {
+                await this.api(`/api/categories/${cat.id}`, { method: 'DELETE' });
+                this.showToast('分类删除成功');
+                this.navigate('categories');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async viewCategory(id) {
+            try {
+                this.currentCategory = await this.api(`/api/categories/${id}`);
+                this.categoryItems = await this.api(`/api/items?category_id=${id}`);
+                this.currentView = 'category-detail';
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 
@@ -205,6 +249,11 @@ createApp({
         async viewItem(id) {
             try {
                 this.currentItem = await this.api(`/api/items/${id}`);
+                this.currentItem.attachments = this.currentItem.attachments.map(att => ({
+                    ...att,
+                    _showPreview: false,
+                    _textContent: null
+                }));
                 this.currentView = 'item-detail';
             } catch (e) { this.showToast(e.message, 'error'); }
         },
@@ -224,7 +273,7 @@ createApp({
                 }
             }
             this.showToast('附件上传成功');
-            this.currentItem = await this.api(`/api/items/${this.currentItem.id}`);
+            await this.viewItem(this.currentItem.id);
             event.target.value = '';
         },
 
@@ -233,8 +282,23 @@ createApp({
             try {
                 await this.api(`/api/attachments/${att.id}`, { method: 'DELETE' });
                 this.showToast('附件删除成功');
-                this.currentItem = await this.api(`/api/items/${this.currentItem.id}`);
+                await this.viewItem(this.currentItem.id);
             } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async togglePreview(att) {
+            att._showPreview = !att._showPreview;
+            if (att._showPreview && this.isText(att.file_type) && !att._textContent) {
+                try {
+                    const res = await fetch(`/api/attachments/${att.id}/preview`);
+                    att._textContent = await res.text();
+                    if (att._textContent.length > 5000) {
+                        att._textContent = att._textContent.substring(0, 5000) + '\n\n... (内容过长，已截断，请下载查看完整文件)';
+                    }
+                } catch (e) {
+                    att._textContent = '加载失败';
+                }
+            }
         },
 
         // CSV export
@@ -267,19 +331,35 @@ createApp({
             return '未设置';
         },
 
-        // File helpers
+        // File type helpers
         isImage(type) {
             return type && type.startsWith('image/');
         },
 
-        isPreviewable(type) {
-            return type && (type.startsWith('image/') || type === 'application/pdf');
+        isPDF(type) {
+            return type === 'application/pdf';
+        },
+
+        isText(type) {
+            return type && (type.startsWith('text/') || type === 'application/json');
+        },
+
+        canPreviewInline(att) {
+            return this.isImage(att.file_type) || this.isPDF(att.file_type) || this.isText(att.file_type);
+        },
+
+        noPreviewHint(type) {
+            if (!type) return '未知文件类型，请下载后查看';
+            if (type.includes('word') || type.includes('document')) return 'Word 文档暂不支持在线预览，请下载后使用 Office 或 WPS 打开';
+            if (type.includes('sheet') || type.includes('excel')) return 'Excel 表格暂不支持在线预览，请下载后使用 Office 或 WPS 打开';
+            return '该文件类型暂不支持在线预览，请下载后使用对应软件打开';
         },
 
         fileIcon(type) {
             if (!type) return 'bi-file-earmark';
             if (type.startsWith('image/')) return 'bi-file-earmark-image text-success';
             if (type === 'application/pdf') return 'bi-file-earmark-pdf text-danger';
+            if (type.startsWith('text/') || type === 'application/json') return 'bi-file-earmark-text text-info';
             if (type.includes('word') || type.includes('document')) return 'bi-file-earmark-word text-primary';
             if (type.includes('sheet') || type.includes('excel')) return 'bi-file-earmark-excel text-success';
             return 'bi-file-earmark text-secondary';
